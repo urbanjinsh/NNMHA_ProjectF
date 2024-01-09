@@ -20,7 +20,7 @@ from multiprocessing import Pool
 
 
 # Convert to grayscale
-img = Image.open(r"test.jpg").convert('L')
+img = Image.open(r'pic/test.jpg').convert('L')
 
 
 # Convert the image to a NumPy array
@@ -38,7 +38,7 @@ n=normalize(img)
 # n =img
 result_n = Image.fromarray(n.astype(np.uint8))
 plt.imshow(n)
-result_n.save('result_n.jpg')
+result_n.save('pic/result_n.jpg')
 
 def extract_surrounding_points(n, i, j):
     rows, cols = n.shape
@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
 result = Image.fromarray(output.astype(np.uint8))
 plt.imshow(result)
-result.save('result_norm.jpg')
+result.save('pic/result_norm.jpg')
 
 
 
