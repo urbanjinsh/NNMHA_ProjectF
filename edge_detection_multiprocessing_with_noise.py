@@ -15,8 +15,13 @@ from sympy import solve
 from sympy import *
 from multiprocessing import Pool
 
+################################################################
+# set mean value、variance and the noise mode
 
-
+mean_value = 0
+variance_value = 0.001
+mode = 1 #1 stand for varing noise, 0 stand for consitent noise
+################################################################
 
 
 # Convert to grayscale
@@ -36,9 +41,9 @@ def normalize(im):
 
 n=normalize(img)
 # n =img
-result_n = Image.fromarray(n.astype(np.uint8))
-plt.imshow(n)
-result_n.save('pic/result_n.jpg')
+# result_n = Image.fromarray(n.astype(np.uint8))
+# plt.imshow(n)
+# result_n.save('pic/result_n.jpg')
 
 def extract_surrounding_points(n, i, j):
     rows, cols = n.shape
@@ -58,6 +63,18 @@ def extract_surrounding_points(n, i, j):
 
     return np.array(surrounding_points)
 
+def generate_gaussian_noise_matrix(mean, variance):
+    std_dev = np.sqrt(variance)
+    noise_matrix = np.zeros((3, 3))
+
+    for i in range(3):
+        for j in range(3):
+            noise_matrix[i, j] = np.random.normal(mean, std_dev)
+
+    return noise_matrix
+
+def add_noise(noise_matrix, matrix):
+    return noise_matrix + matrix
 
 # A = [[0, 0, 0], 
 #       [0,a_00,0], 
@@ -84,29 +101,26 @@ def nonlinearity(x):          # standard nonlinearity
 t=np.linspace(0, 5, 30)
 # t=np.linspace(0, 30, 60)
 
-output = np.zeros(img.shape )
+output = np.zeros(img.shape)
 
-u_time = 0.00
-result_time = 0.00
-y_time = 0.00
+
+
+consitent_noise = generate_gaussian_noise_matrix(mean_value, variance_value)
 
 def process_pixel(args):
     i, j = args
+    varing_noise = generate_gaussian_noise_matrix(mean_value, variance_value)
     matrix_U = extract_surrounding_points(n, i, j)
-            # end_u_time = time.time()
-            # u_time = (end_u_time - start_u_time)+u_time
-        
-            ## odeint
-            # start_result_time = time.time()
-    result = odeint(diff_equation, -0.01, t, args=(a_00,matrix_U,matrix_B,))  # x(0) = 0
-            # result = solve_ivp(diff_equation, [0,10], [0], args=(u,))  # x(0) = 0
-            # end_result_time = time.time()
-            # result_time = (end_result_time - start_result_time)+result_time
+    if mode == 1:   
+        matrix_U = add_noise(varing_noise,matrix_U)
 
-            # start_y_time = time.time()
+    elif mode == 0:
+        matrix_U = add_noise(consitent_noise,matrix_U)
+        
+    result = odeint(diff_equation, -0.01, t, args=(a_00,matrix_U,matrix_B,))  # x(0) = 0
+
     y = nonlinearity (result[:, 0])
-            # end_y_time = time.time()
-            # y_time = (end_y_time - start_y_time)+y_time
+
     # print(y)
     return i,j,y
 
@@ -128,7 +142,7 @@ if __name__ == '__main__':
 
 result = Image.fromarray(output.astype(np.uint8))
 plt.imshow(result)
-result.save('pic/result_norm_t05.jpg')
+result.save('pic/result_with_varience_noise_0.005.jpg')
 
 
 
