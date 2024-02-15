@@ -44,4 +44,4 @@ plt.xlabel('x_ij')
 # naming the y axis 
 plt.ylabel('x_ij_dot') 
 
-#plt.show()
+plt.show()

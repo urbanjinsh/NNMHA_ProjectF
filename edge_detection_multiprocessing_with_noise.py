@@ -2,6 +2,13 @@
 """
 Created on Mon Dec 18 22:56:19 2023
 
+This file is to do the edge detection in the CellNN network with noise.
+The noise can be set to be consitent or varing.
+The edge detection process is done in parallel.
+
+Input: a black and white picture
+Output: a picture with edge detection
+
 @author: Bingyi Jin
 """
 
@@ -19,20 +26,20 @@ from multiprocessing import Pool
 # set mean value、variance and the noise mode
 
 mean_value = 0
-variance_value = 0.001
+variance_value = 0.005
 mode = 1 #1 stand for varing noise, 0 stand for consitent noise
+
+# set the pic path
+pic_path = 'pic/lenna_BW.jpg'
 ################################################################
 
-
-# Convert to grayscale
-img = Image.open(r'pic/black_and_white.jpg').convert('1')
-
+# Convert to balck and white
+img = Image.open(pic_path).convert('1')
 
 # Convert the image to a NumPy array
 img = np.array(img)
-# print("Shape of the image array:", img.shape) # (height,width)
-
 img = img.astype(float)
+
 # normalize input pic to [-1, 1] 
 def normalize(im):
     min, max = im.min(), im.max()
@@ -40,12 +47,19 @@ def normalize(im):
     return 2 * (im.astype(float)-min)/(max-min) - 1
 
 n=normalize(img)
-# n =img
-# result_n = Image.fromarray(n.astype(np.uint8))
-# plt.imshow(n)
-# result_n.save('pic/result_n.jpg')
 
+# Extract the surrounding 3 * 3 points of a pixel in (i,j) coordinates
 def extract_surrounding_points(n, i, j):
+    """
+    Generate 3 * 3 neighbours of a pixel which in (i,j) coordinates
+    
+    parameter:
+    - n: target picture
+    - i,j: coordinates of the pixel
+    
+    return: 
+    - 3 * 3 matrix
+    """
     rows, cols = n.shape
     surrounding_points = np.zeros((3, 3), dtype=n.dtype)
 
@@ -63,7 +77,18 @@ def extract_surrounding_points(n, i, j):
 
     return np.array(surrounding_points)
 
+# Generate a 3 * 3 matrix of Gaussian noise
 def generate_gaussian_noise_matrix(mean, variance):
+    """
+    Generate a 3 * 3 matrix of Gaussian noise maxtrix
+    
+    parameter:
+    - mean: mean of Gaussian noise
+    - variance: variance of Gaussian noise
+    
+    return: 
+    - 3 * 3 matrix of Gaussian noise
+    """
     std_dev = np.sqrt(variance)
     noise_matrix = np.zeros((3, 3))
 
@@ -73,47 +98,46 @@ def generate_gaussian_noise_matrix(mean, variance):
 
     return noise_matrix
 
+# Add noise to a matrix
 def add_noise(noise_matrix, matrix):
     return noise_matrix + matrix
 
-# A = [[0, 0, 0], 
-#       [0,a_00,0], 
-#       [0, 0, 0] ]
-# B = [[0, 0, 0], 
-#       [0,b_00,0], 
-#       [0, 0, 0] ]
-
 
 ##############################################################
+# Define edge detection template
 a_00 = 2
-
 matrix_B = np.array([[-1, -1, -1],
                      [-1, 8, -1],
                      [-1, -1, -1]])
 
+# Define the differential equation
 def diff_equation(x,t,a_00,matrix_U,matrix_B):
     matrix_B_mul_U = np.multiply(matrix_U, matrix_B)
     B_mul_U = np.sum(matrix_B_mul_U)
     return(- x + a_00 * nonlinearity(x) + B_mul_U - 0.5)
+
+# Define the nonlinearity
 def nonlinearity(x):          # standard nonlinearity
     return (abs(x+1) - abs(x-1)) /2
 
+# Define the time points
 t=np.linspace(0, 5, 30)
-# t=np.linspace(0, 30, 60)
 
+# Define the output matrix
 output = np.zeros(img.shape)
 
-
-
+# Define the noise matrix which will not change during the process
 consitent_noise = generate_gaussian_noise_matrix(mean_value, variance_value)
 
+# Define the edge detection process of each pixel
 def process_pixel(args):
     i, j = args
-    varing_noise = generate_gaussian_noise_matrix(mean_value, variance_value)
+    varing_noise = generate_gaussian_noise_matrix(mean_value, variance_value) # Define the noise matrix which will change during the process
     matrix_U = extract_surrounding_points(n, i, j)
+
+    # Select the mode to be used
     if mode == 1:   
         matrix_U = add_noise(varing_noise,matrix_U)
-
     elif mode == 0:
         matrix_U = add_noise(consitent_noise,matrix_U)
         
@@ -121,48 +145,21 @@ def process_pixel(args):
 
     y = nonlinearity (result[:, 0])
 
-    # print(y)
     return i,j,y
 
 
 
 if __name__ == '__main__':
+    # Do the edge detection in parallel
     with Pool() as pool:
-        
         args_list = [(i, j) for i in range(img.shape[0]) for j in range(img.shape[1])]
-
-        
         results = pool.map(process_pixel, args_list)
-
     for i, j, y in results:
         output[i][j] = y[-1]
 
     print(output.shape)
         
-
+# Save results
 result = Image.fromarray(output.astype(np.uint8))
 plt.imshow(result)
-result.save('pic/result_with_varience_noise_0.005.jpg')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# a_00 = 2
-# x_ij = np.linspace(-13, 13, 100) 
-# x_ij_dot = -x_ij + a_00* (abs(x_ij+1) - abs(x_ij-1)) /2 
-# plt.plot(x_ij, x_ij_dot)
+result.save('pic/lenna_with_varience_noise_{variance}.jpg')
